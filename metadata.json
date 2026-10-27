@@ -1,0 +1,6 @@
+{
+  "name": "CardioPulse 12-Lead ECG Copilot & Heart Health Monitor",
+  "description": "Clinical-grade 12-lead ECG viewer and automated heart rate, rhythm, and ischemia trend analysis powered by real-time medical databases, digital caliper tools, biometric security, and offline clinical reports.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

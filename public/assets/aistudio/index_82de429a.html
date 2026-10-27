@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>CardioCheck | ECG Copilot</title>
+<script src="https://cdn.tailwindcss.com/3.4.17"></script>
+<style>:root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);color-scheme:dark}html{scroll-padding-top:env(safe-area-inset-top,0px)}</style>
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen p-4 sm:p-6 font-sans">
+<div class="max-w-4xl mx-auto space-y-6">
+
+  <header class="border-b border-slate-700 pb-4">
+    <h1 class="text-2xl font-bold tracking-tight text-white flex items-center gap-2">
+      <svg class="w-6 h-6 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/></svg>
+      CardioCheck Pro
+    </h1>
+    <p class="text-sm text-slate-400 mt-1">Guideline-driven ECG decision support · no API key needed</p>
+  </header>
+
+  <div class="rounded-lg border border-amber-700 bg-amber-950/50 p-3 text-xs text-amber-200">
+    AI-assisted reading from a photo. It can miss or invent findings, so it is not a diagnosis. Always over-read the ECG yourself. Crop out patient names and IDs before uploading.
+  </div>
+
+  <div class="bg-slate-800 border border-slate-700 rounded-xl p-6 text-center space-y-4 shadow-lg">
+    <input type="file" id="ecgInput" accept="image/*" class="hidden">
+    <label for="ecgInput" class="cursor-pointer inline-flex items-center justify-center gap-2 w-full sm:w-auto bg-emerald-600 hover:bg-emerald-500 text-white font-medium px-6 py-3 rounded-lg transition shadow-md">
+      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/><circle cx="12" cy="13" r="4"/></svg>
+      Snap / Upload 12-Lead ECG
+    </label>
+    <p class="text-xs text-slate-400">Based on 4th Universal Definition STEMI criteria and common STEMI-mimic patterns</p>
+
+    <div id="previewContainer" class="hidden mt-4">
+      <img id="imagePreview" alt="ECG preview" class="max-h-64 rounded border border-slate-600 object-contain mx-auto shadow-md">
+      <button id="analyzeBtn" class="mt-4 w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 rounded-lg transition shadow-md">Run ECG analysis</button>
+    </div>
+
+    <div id="loading" class="hidden flex flex-col items-center justify-center py-6 space-y-3">
+      <div class="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-blue-500"></div>
+      <p class="text-blue-400 font-mono text-sm animate-pulse">Reading ECG, this can take up to a minute…</p>
+    </div>
+    <p id="err" class="hidden text-sm text-red-300"></p>
+  </div>
+
+  <div id="results" class="hidden space-y-4">
+    <div id="banner" class="p-4 rounded-xl flex items-center justify-center font-bold text-lg text-center shadow-lg"></div>
+
+    <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+      <div class="bg-slate-800 p-4 rounded-xl border border-slate-700 text-center"><div class="text-xs text-slate-400 mb-1">Tech Quality</div><div id="rTech" class="text-sm font-bold leading-tight">--</div></div>
+      <div class="bg-slate-800 p-4 rounded-xl border border-slate-700 text-center"><div class="text-xs text-slate-400 mb-1">Rate &amp; Rhythm</div><div id="rRhythm" class="text-sm font-bold leading-tight">--</div></div>
+      <div class="bg-slate-800 p-4 rounded-xl border border-slate-700 text-center"><div class="text-xs text-slate-400 mb-1">Axis &amp; Intervals</div><div id="rAxis" class="text-sm font-bold leading-tight">--</div></div>
+      <div class="bg-slate-800 p-4 rounded-xl border border-slate-700 text-center"><div class="text-xs text-slate-400 mb-1">Conduction/Hypertrophy</div><div id="rCond" class="text-sm font-bold leading-tight">--</div></div>
+    </div>
+
+    <div class="bg-slate-800 border border-slate-700 rounded-xl p-5 shadow-lg space-y-5">
+      <div><h3 class="text-xs font-bold text-slate-400 uppercase tracking-wider border-b border-slate-700 pb-1 mb-2">Ischemia, Infarction &amp; STEMI Mimics</h3><p id="rIsch" class="text-sm text-slate-200 leading-relaxed"></p></div>
+      <div><h3 class="text-xs font-bold text-slate-400 uppercase tracking-wider border-b border-slate-700 pb-1 mb-2">Syndrome Screening (PE, Tox, Brugada, Lytes)</h3><p id="rSyn" class="text-sm text-slate-200 leading-relaxed"></p></div>
+      <div class="bg-slate-900 p-4 rounded border border-slate-700">
+        <h3 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Clinical Synthesis</h3>
+        <p id="rSyth" class="text-base text-blue-300 font-medium leading-relaxed"></p>
+      </div>
+      <div><h3 class="text-xs font-bold text-slate-400 uppercase tracking-wider border-b border-slate-700 pb-1 mb-2">Limitations of this reading</h3><p id="rLim" class="text-sm text-slate-300 leading-relaxed"></p></div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+var $=function(i){return document.getElementById(i)},blob=null,sample=null;
+
+var PROMPT=`You are an expert emergency cardiologist and electrophysiologist analyzing the attached photo of a 12-lead ECG.
+If the image is not a 12-lead ECG, or is too poor to read, say so in tech_quality and limitations, leave other fields as "Not assessable", and set critical_alert false.
+Never invent measurements you cannot see. State uncertainty plainly.
+Apply these criteria:
+
+1. TECH QUALITY: Check for somatic tremor, baseline wander, AC interference, and limb lead reversal (e.g. negative P/QRS in Lead I = check arm leads vs dextrocardia).
+2. STEMI CRITERIA: New ST elevation at the J point in >=2 contiguous leads. V2-V3 cutoffs: men >=40 yrs >=2mm, men <40 yrs >=2.5mm, women >=1.5mm. Other leads >=1mm.
+3. HIGH-RISK INFARCT EXTENSION: If inferior MI is present, check V1 and V2. If V1 STE > V2 STE, or ST depression in V2 with isoelectric V1, suspect right ventricular MI and suggest V4R. If V1-V3 show ST depression, prominent R-waves and upright T-waves, consider posterior MI and suggest V7-V9.
+4. STEMI MIMICS & SYNDROMES:
+ - Wellens: biphasic or deeply inverted T-waves in V2-V3 (proximal LAD lesion).
+ - Pulmonary embolism: S1Q3T3, new RBBB, rightward axis, simultaneous T inversions in inferior and anteroseptal leads.
+ - Brugada: coved/saddleback STE in V1-V3 with RBBB pattern.
+ - Hyperkalemia: tall, narrow, peaked, symmetric T-waves (differentiate from broad hyperacute ischemic T-waves), PR prolongation, QRS widening.
+ - Digoxin toxicity: scooped ST segments, PAT with block, or slow regular ventricular response in AF.
+ - Benign early repolarization: concave STE, J-point notching, prominent T-waves, ABSENCE of reciprocal ST depression.
+ - TCA overdose: tachycardia, rightward axis, tall R in aVR (>=3mm), QRS widening.
+
+Return ONLY a raw JSON object (no markdown, no extra text) with exactly these keys:
+{"tech_quality":"string","rate_rhythm":"string","axis_intervals":"string (axis, PR, QRS, QTc)","conduction_hypertrophy":"string","ischemia_infarction":"string (ST segments, T-waves, Q-waves, reciprocal changes, posterior/RV extension)","syndromes_and_mimics":"string (explicitly rule in/out BER, Wellens, PE, Brugada, lytes/tox)","primary_synthesis":"string (2-3 sentences)","limitations":"string (what you could not see or are unsure of)","critical_alert":boolean (true ONLY if acute STEMI, lethal dysrhythmia, Brugada, critical toxidrome or severe hyperkalemia is suspected)}`;
+
+function showErr(m){var e=$("err");e.textContent=m;e.classList.remove("hidden")}
+
+// Shrink the photo so it uploads quickly and stays within limits
+function shrink(file){return new Promise(function(res,rej){
+  var img=new Image(),u=URL.createObjectURL(file);
+  img.onload=function(){var s=Math.min(1,1800/Math.max(img.width,img.height)),c=document.createElement("canvas");
+    c.width=Math.round(img.width*s);c.height=Math.round(img.height*s);c.getContext("2d").drawImage(img,0,0,c.width,c.height);
+    URL.revokeObjectURL(u);c.toBlob(function(b){b?res(b):rej(new Error("Could not process image"))},"image/jpeg",.88)};
+  img.onerror=function(){rej(new Error("Could not read this image file"))};img.src=u})}
+
+$("ecgInput").addEventListener("change",async function(e){
+  var f=e.target.files[0];if(!f)return;
+  $("err").classList.add("hidden");$("results").classList.add("hidden");
+  try{blob=await shrink(f);$("imagePreview").src=URL.createObjectURL(blob);$("previewContainer").classList.remove("hidden")}
+  catch(x){showErr(x.message)}
+});
+
+$("analyzeBtn").addEventListener("click",async function(){
+  if(!blob)return;
+  $("err").classList.add("hidden");
+  try{
+    if(!sample){sample=window.claude?await window.claude.use("sample"):null}
+    if(!sample){showErr("Claude isn’t available in this view. Open the page from your claude.ai account to use it.");return}
+    $("analyzeBtn").classList.add("hidden");$("loading").classList.remove("hidden");$("results").classList.add("hidden");
+    var r=await sample.json(PROMPT,{images:[blob],modelTier:"complex",cache:false});
+    show(r);
+  }catch(x){
+    var c=x&&x.code;
+    showErr(c==="not_granted"?"Permission to use Claude was declined.":c==="rate_limited"?"Too many requests. Wait a moment and try again.":c==="invalid_json"?"The reply wasn’t readable. Please try again.":("Analysis failed: "+((x&&x.message)||x)));
+  }finally{$("loading").classList.add("hidden");$("analyzeBtn").classList.remove("hidden")}
+});
+
+function show(d){
+  $("results").classList.remove("hidden");
+  var b=$("banner");
+  if(d.critical_alert){b.className="p-4 rounded-xl flex items-center justify-center font-bold text-lg text-center shadow-lg bg-red-900 border border-red-500 text-white animate-pulse";b.textContent="🚨 POSSIBLE CRITICAL FINDING: IMMEDIATE CLINICAL REVIEW 🚨"}
+  else{b.className="p-4 rounded-xl flex items-center justify-center font-semibold text-base text-center shadow-lg bg-slate-700 border border-slate-500 text-slate-100";b.textContent="No critical pattern flagged by AI. This is not a clearance; over-read the ECG yourself."}
+  $("rTech").textContent=d.tech_quality||"Not assessed";$("rRhythm").textContent=d.rate_rhythm||"--";
+  $("rAxis").textContent=d.axis_intervals||"--";$("rCond").textContent=d.conduction_hypertrophy||"--";
+  $("rIsch").textContent=d.ischemia_infarction||"Not assessed";$("rSyn").textContent=d.syndromes_and_mimics||"Not assessed";
+  $("rSyth").textContent=d.primary_synthesis||"Pending interpretation.";$("rLim").textContent=d.limitations||"Not stated.";
+}
+})();
+</script>
+</body>
+</html>
